@@ -7,6 +7,9 @@ use tracing::{error, info};
 use crate::common::read_bytes;
 use crate::flatbuffers::{root_as_message, MessageType};
 
+/// Letter is the Message Router exchange between itself
+/// to perform actions, such as forwarding messages to clients
+/// but also removing clients from its map.
 pub enum Letter {
     // forward the message to i32 id
     Forward(i32, Vec<u8>),
@@ -14,6 +17,10 @@ pub enum Letter {
     Remove(i32),
 }
 
+/// Router is the main responsible for handling connections and 
+/// requests from clients. Each new connection is kept in a new Task
+/// and all messages from clients are forward to a Tokio channel.
+/// From another Task, Router can decide what to do with the message.
 pub struct Router {
     clients: clashmap::ClashMap<i32, Arc<Mutex<quinn::SendStream>>>,
     rx: Mutex<mpsc::Receiver<Letter>>,
@@ -55,11 +62,9 @@ impl Router {
             Ok(s) => s,
         };
 
-        info!("reading first message");
 
         let bytes = read_bytes(&mut receiver).await?;
 
-        info!("read first message");
         let message =
             root_as_message(&bytes).map_err(|e| anyhow!("failed parsing message: {:?}", e))?;
 
@@ -111,7 +116,9 @@ impl Router {
         Ok(())
     }
 
-    // keep processing messages
+    /// keep processing messages, this should be started in a Task and used only once.
+    /// If you call multiple times, all tasks besides the first will be blocked waiting
+    /// the Mutex.
     pub async fn route(&self) {
         // no point in any other task ever to access this lock, so we grab
         // it forever
