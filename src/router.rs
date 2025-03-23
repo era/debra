@@ -48,7 +48,6 @@ impl Router {
     pub async fn new_connection(&self, conn: quinn::Incoming) -> Result<()> {
         let connection = conn.await?;
 
-        // Each stream initiated by the client should constitutes a new request.
         // for now let's just assume we will have a single stream per client
         let stream = connection.accept_bi().await;
         let (sender, mut receiver) = match stream {
