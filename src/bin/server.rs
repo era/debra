@@ -97,7 +97,7 @@ async fn run_server(shutdown_guard: tokio_graceful::ShutdownGuard) {
                         });
 
                     }
-                    _ => break
+                    _ => continue
                 }
             }
         }
