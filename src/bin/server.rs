@@ -1,7 +1,7 @@
 use quinn::{Endpoint, ServerConfig};
 use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
-
 use std::{error::Error, net::SocketAddr, sync::Arc};
+use tokio::time::Duration;
 
 use tracing::info;
 
@@ -50,6 +50,23 @@ async fn main() {
     )
     .unwrap();
 
+    let shutdown = tokio_graceful::Shutdown::default();
+
+    shutdown.spawn_task_fn(run_server);
+    match shutdown.shutdown_with_limit(Duration::from_secs(10)).await {
+        Ok(elapsed) => {
+            tracing::info!(
+                "shutdown: gracefully {}s after shutdown signal received",
+                elapsed.as_secs_f64()
+            );
+        }
+        Err(e) => {
+            tracing::warn!("shutdown: forcefully due to timeout: {}", e);
+        }
+    }
+}
+
+async fn run_server(shutdown_guard: tokio_graceful::ShutdownGuard) {
     let config = Config::get();
 
     let (endpoint, _cert) = make_server_endpoint(config.listen).unwrap();
@@ -62,12 +79,27 @@ async fn main() {
         router_task.route().await;
     });
 
-    while let Some(conn) = endpoint.accept().await {
-        info!("new connection");
-        let router = router.clone();
-        tokio::spawn(async move {
-            let res = router.new_connection(conn).await;
-            info!("new_connection result: {:?}", res);
-        });
+    loop {
+        let shutdown_guard = shutdown_guard.clone();
+        tokio::select! {
+            _ = shutdown_guard.cancelled() => {
+                router.close().await;
+                break;
+            }
+            conn = endpoint.accept() => {
+                match conn {
+                    Some(conn) => {
+                        info!("new connection");
+                        let router = router.clone();
+                        tokio::spawn(async move {
+                            let res = router.new_connection(conn).await;
+                            info!("new_connection result: {:?}", res);
+                        });
+
+                    }
+                    _ => break
+                }
+            }
+        }
     }
 }

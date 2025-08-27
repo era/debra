@@ -117,7 +117,6 @@ fn reading_chat(client_id: i32, mut send: quinn::SendStream) {
             }
         };
 
-
         let mut string_input = String::new();
         io::stdin()
             .read_line(&mut string_input)

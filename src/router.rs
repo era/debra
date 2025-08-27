@@ -17,7 +17,7 @@ pub enum Letter {
     Remove(i32),
 }
 
-/// Router is the main responsible for handling connections and 
+/// Router is the main responsible for handling connections and
 /// requests from clients. Each new connection is kept in a new Task
 /// and all messages from clients are forward to a Tokio channel.
 /// From another Task, Router can decide what to do with the message.
@@ -39,6 +39,12 @@ impl Default for Router {
 }
 
 impl Router {
+    pub async fn close(&self) {
+        for conn in &self.clients {
+            let mut conn = conn.lock().await;
+            let _ = conn.finish();
+        }
+    }
     /// handles a new connection, it assumes the first message will be a simple ClientRegistration
     /// and only reads the `client_id` to setup the env to wait for messages from it.
     ///
@@ -60,7 +66,6 @@ impl Router {
             }
             Ok(s) => s,
         };
-
 
         let bytes = read_bytes(&mut receiver).await?;
 

@@ -2,7 +2,6 @@
 
 // @generated
 
-
 extern crate flatbuffers;
 
 #[allow(unused_imports, dead_code)]
