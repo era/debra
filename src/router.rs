@@ -41,6 +41,10 @@ impl Default for Router {
 impl Router {
     pub async fn close(&self) {
         for conn in &self.clients {
+            // there is a small problem here
+            // because we do not remove the entry from the map
+            // if a message is sent after we finish()
+            // the task sending messages should receive an error.
             let mut conn = conn.lock().await;
             let _ = conn.finish();
         }
